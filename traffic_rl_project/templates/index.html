@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Traffic RL Dashboard</title>
+</head>
+<body>
+    <h1>Traffic Signal Control - RL</h1>
+    <div id="data"></div>
+
+    <script>
+        setInterval(() => {
+            fetch('/metrics')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById("data").innerHTML =
+                        "Waiting Time: " + data.waiting_time +
+                        "<br>Reward: " + data.reward +
+                        "<br>Episode: " + data.episode;
+                });
+        }, 1000);
+    </script>
+</body>
+</html>

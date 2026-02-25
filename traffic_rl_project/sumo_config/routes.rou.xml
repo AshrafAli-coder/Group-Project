@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<routes>
+
+    <vType id="car" accel="1.0" decel="4.5" sigma="0.5"
+           length="5" maxSpeed="13.9"/>
+
+    <!-- All possible turns -->
+    <route id="n_s" edges="A1B1 B1C1"/>
+    <route id="n_w" edges="A1B1 B1B0"/>
+    <route id="n_e" edges="A1B1 B1B2"/>
+
+    <route id="s_n" edges="C1B1 B1A1"/>
+    <route id="s_w" edges="C1B1 B1B0"/>
+    <route id="s_e" edges="C1B1 B1B2"/>
+
+    <route id="w_e" edges="B0B1 B1B2"/>
+    <route id="w_n" edges="B0B1 B1A1"/>
+    <route id="w_s" edges="B0B1 B1C1"/>
+
+    <route id="e_w" edges="B2B1 B1B0"/>
+    <route id="e_n" edges="B2B1 B1A1"/>
+    <route id="e_s" edges="B2B1 B1C1"/>
+
+    <!-- Traffic flows -->
+    <flow id="f1" type="car" route="n_s" begin="0" end="1000" vehsPerHour="400"/>
+    <flow id="f2" type="car" route="n_w" begin="0" end="1000" vehsPerHour="200"/>
+    <flow id="f3" type="car" route="n_e" begin="0" end="1000" vehsPerHour="200"/>
+
+    <flow id="f4" type="car" route="s_n" begin="0" end="1000" vehsPerHour="400"/>
+    <flow id="f5" type="car" route="s_w" begin="0" end="1000" vehsPerHour="200"/>
+    <flow id="f6" type="car" route="s_e" begin="0" end="1000" vehsPerHour="200"/>
+
+    <flow id="f7" type="car" route="w_e" begin="0" end="1000" vehsPerHour="400"/>
+    <flow id="f8" type="car" route="e_w" begin="0" end="1000" vehsPerHour="400"/>
+
+</routes>
