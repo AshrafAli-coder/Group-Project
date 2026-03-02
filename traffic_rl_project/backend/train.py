@@ -20,7 +20,7 @@ sumoBinary = r"C:\Program Files (x86)\Eclipse\Sumo\bin\sumo.exe"
 sumoConfig = os.path.join("sumo_config", "simulation.sumocfg")
 
 TLS_ID = "B1"
-EPISODES = 150
+EPISODES = 60
 MIN_GREEN = 15
 
 GAMMA = 0.99
@@ -30,12 +30,12 @@ MEMORY_SIZE = 10000
 
 EPSILON_START = 1.0
 EPSILON_MIN = 0.05
-EPSILON_DECAY = 0.990
+EPSILON_DECAY = 0.97
 
 TARGET_UPDATE = 1000
 MAX_STEPS = 3000
 
-REWARD_SCALE = 0.001
+REWARD_SCALE = 0.005
 SWITCH_PENALTY = -0.5
 
 
@@ -49,12 +49,17 @@ def get_sumo_cmd(seed):
     ]
 
 
-def train():
+def train(update_callback=None, stop_flag=None):
 
     memory = deque(maxlen=MEMORY_SIZE)
     reward_history = []
+    
 
+    if traci.isLoaded():
+        traci.close()
     traci.start(get_sumo_cmd(1))
+    
+
     lanes = traci.trafficlight.getControlledLanes(TLS_ID)
     lanes = list(dict.fromkeys(lanes))
     logic = traci.trafficlight.getAllProgramLogics(TLS_ID)[0]
@@ -77,8 +82,16 @@ def train():
 
     for episode in range(EPISODES):
 
+        if stop_flag and stop_flag():
+            print("Training Stopped by User")
+            break
+
         traci.start(get_sumo_cmd(episode + 1))
+
         total_reward = 0
+        total_waiting_time = 0      # ✅ FIXED
+        total_queue_length = 0      # ✅ FIXED
+
         time_since_last_change = 0
         steps = 0
 
@@ -98,13 +111,18 @@ def train():
 
             current_phase = traci.trafficlight.getPhase(TLS_ID)
 
+            vehicle_counts = [v / 20.0 for v in vehicle_counts]  # assume max 20 vehicles
+            waiting_times = [w / 10000.0 for w in waiting_times]  # scale down
+            phase_norm = current_phase / action_size
+
             state = np.array(
-                vehicle_counts + waiting_times + [current_phase],
-                dtype=np.float32
+            vehicle_counts + waiting_times + [phase_norm],
+            dtype=np.float32
             )
 
             state_tensor = torch.FloatTensor(state).unsqueeze(0)
 
+            # Epsilon-greedy
             if random.random() < epsilon:
                 action = random.randrange(action_size)
             else:
@@ -120,6 +138,7 @@ def train():
             traci.simulationStep()
             time_since_last_change += 1
 
+            # 🔥 Reward calculation
             raw_wait = sum(
                 traci.lane.getWaitingTime(lane) for lane in lanes
             )
@@ -131,6 +150,11 @@ def train():
 
             total_reward += reward
 
+            # ✅ Accumulate episode metrics
+            total_waiting_time += raw_wait
+            total_queue_length += sum(vehicle_counts)
+
+            # Next state
             vehicle_counts_next = [
                 traci.lane.getLastStepVehicleNumber(lane)
                 for lane in lanes
@@ -148,12 +172,14 @@ def train():
                 dtype=np.float32
             )
 
-            done = steps >= MAX_STEPS
+            done = (steps >= MAX_STEPS or
+                    traci.simulation.getMinExpectedNumber() <= 0)
 
             memory.append((state, action, reward, next_state, done))
             step_counter += 1
 
-            if len(memory) > BATCH_SIZE:
+            # Training step
+            if len(memory) >= BATCH_SIZE:
 
                 batch = random.sample(memory, BATCH_SIZE)
 
@@ -189,12 +215,27 @@ def train():
         epsilon = max(EPSILON_MIN, epsilon * EPSILON_DECAY)
         reward_history.append(total_reward)
 
-        print(f"Episode {episode+1}/{EPISODES} | Reward: {total_reward:.2f} | Epsilon: {epsilon:.3f}")
+        print(f"Episode {episode+1}/{EPISODES} | "
+              f"Reward: {total_reward:.2f} | "
+              f"Waiting: {total_waiting_time:.2f} | "
+              f"Queue: {total_queue_length:.2f} | "
+              f"Epsilon: {epsilon:.3f}")
 
+        # ✅ Send FULL episode metrics to dashboard
+        if update_callback:
+            update_callback({
+                "episode": episode + 1,
+                "reward": float(total_reward),
+                "waiting_time": float(total_waiting_time),
+                "queue_length": float(total_queue_length),
+            })
+
+        # Save best model
         if total_reward > best_reward:
             best_reward = total_reward
             os.makedirs("models", exist_ok=True)
-            torch.save(online_net.state_dict(), "models/traffic_dqn_model.pth")
+            torch.save(online_net.state_dict(),
+                       "models/traffic_dqn_model.pth")
 
     os.makedirs("results", exist_ok=True)
 
@@ -206,7 +247,3 @@ def train():
     plt.close()
 
     print("\nTraining Complete. Stable Model Saved.")
-
-
-if __name__ == "__main__":
-    train()
