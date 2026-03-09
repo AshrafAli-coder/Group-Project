@@ -3,38 +3,52 @@ import MetricsCard from "./MetricsCard";
 import RewardChart from "./RewardChart";
 
 function Dashboard() {
+
   const [metrics, setMetrics] = useState({});
   const [rewardHistory, setRewardHistory] = useState([]);
   const [evaluation, setEvaluation] = useState(null);
 
   useEffect(() => {
+
     const interval = setInterval(() => {
+
       fetch("http://127.0.0.1:5000/metrics")
         .then(res => res.json())
         .then(data => {
+
           setMetrics(data);
+
           if (data.reward !== undefined) {
-            setRewardHistory(prev => [...prev.slice(-20), data.reward]);
+            setRewardHistory(prev => [...prev.slice(-40), data.reward]);
           }
-        });
+
+        })
+        .catch(err => console.error("Error fetching metrics:", err));
+
     }, 2000);
 
     return () => clearInterval(interval);
+
   }, []);
 
+
   const startSimulation = () => {
-    fetch("http://127.0.0.1:5000/start");
+    fetch("http://127.0.0.1:5000/start")
+      .catch(err => console.error("Start error:", err));
   };
 
   const stopSimulation = () => {
-    fetch("http://127.0.0.1:5000/stop");
+    fetch("http://127.0.0.1:5000/stop")
+      .catch(err => console.error("Stop error:", err));
   };
 
   const evaluateModel = () => {
     fetch("http://127.0.0.1:5000/evaluate")
       .then(res => res.json())
-      .then(data => setEvaluation(data));
+      .then(data => setEvaluation(data))
+      .catch(err => console.error("Evaluation error:", err));
   };
+
 
   return (
     <div style={{
@@ -43,19 +57,30 @@ function Dashboard() {
       minHeight: "100vh",
       color: "white"
     }}>
+
       <h1 style={{ textAlign: "center", marginBottom: "30px" }}>
         Smart Traffic Control Intelligence System
       </h1>
 
-      <h3>
-        Status:
-        <span style={{
-          marginLeft: "10px",
-          color: metrics.status === "running" ? "#00ff88" : "red"
-        }}>
-          {metrics.status?.toUpperCase()}
+      <div style={{ marginBottom: "20px" }}>
+        <span
+          style={{
+            padding: "8px 20px",
+            borderRadius: "20px",
+            background:
+              metrics.status === "running"
+                ? "rgba(0,255,136,0.2)"
+                : "rgba(255,0,0,0.2)",
+            color:
+              metrics.status === "running"
+                ? "#00ff88"
+                : "red",
+            fontWeight: "bold",
+          }}
+        >
+          {metrics.status?.toUpperCase() || "STOPPED"}
         </span>
-      </h3>
+      </div>
 
       <div style={{
         display: "grid",
@@ -73,14 +98,54 @@ function Dashboard() {
         <RewardChart rewards={rewardHistory} />
       </div>
 
-      <div style={{ marginTop: "50px" }}>
-        <button onClick={startSimulation}>Start</button>
-        <button onClick={stopSimulation} style={{ marginLeft: "20px" }}>
+      <div style={{ marginTop: "50px", textAlign: "center" }}>
+
+        <button
+          onClick={startSimulation}
+          style={{
+            padding: "10px 25px",
+            background: "#00ff88",
+            border: "none",
+            borderRadius: "8px",
+            marginRight: "20px",
+            cursor: "pointer",
+            fontWeight: "bold",
+          }}
+        >
+          Start
+        </button>
+
+        <button
+          onClick={stopSimulation}
+          style={{
+            padding: "10px 25px",
+            background: "red",
+            border: "none",
+            borderRadius: "8px",
+            marginRight: "20px",
+            cursor: "pointer",
+            color: "white",
+            fontWeight: "bold",
+          }}
+        >
           Stop
         </button>
-        <button onClick={evaluateModel} style={{ marginLeft: "20px" }}>
+
+        <button
+          onClick={evaluateModel}
+          style={{
+            padding: "10px 25px",
+            background: "#6366f1",
+            border: "none",
+            borderRadius: "8px",
+            cursor: "pointer",
+            color: "white",
+            fontWeight: "bold",
+          }}
+        >
           Evaluate
         </button>
+
       </div>
 
       {evaluation && (
@@ -91,6 +156,7 @@ function Dashboard() {
           <p>Improvement: {evaluation.improvement}%</p>
         </div>
       )}
+
     </div>
   );
 }
